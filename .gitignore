@@ -1,1 +1,6 @@
-.vercel
+# Python virtual environment
+venv/
+./venv/
+
+# Vercel config
+.vercel/

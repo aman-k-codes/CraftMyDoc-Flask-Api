@@ -7,6 +7,9 @@ import fitz  # For PDF to HTML
 import pytesseract  # type: ignore
 from flask import after_this_request
 from docx import Document
+import torch
+from realesrgan import RealESRGAN
+import torchvision.transforms.functional as TF
 import io
 import os
 
@@ -55,6 +58,28 @@ def remove_background():
     return send_file(img_io, mimetype='image/png', as_attachment=True, download_name='no_bg.png')
 
 # Enhance photo
+# @app.route('/api/enhance-photo', methods=['POST'])
+# def enhance_photo():
+#     print(request.form);
+#     if 'file' not in request.files:
+#         return {'error': 'No image uploaded'}, 400
+
+#     file = request.files['file']
+#     if not allowed_file(file.filename):
+#         return jsonify({'error': 'Invalid file type, only image files allowed'}), 400
+
+#     input_image = Image.open(file.stream).convert("RGB")
+#     enhanced = ImageEnhance.Brightness(
+#         ImageEnhance.Contrast(
+#             ImageEnhance.Sharpness(input_image).enhance(2.0)
+#         ).enhance(1.5)
+#     ).enhance(1.2)
+
+#     img_io = io.BytesIO()
+#     enhanced.save(img_io, 'JPEG', quality=95)
+#     img_io.seek(0)
+
+#     return send_file(img_io, mimetype='image/jpeg', as_attachment=True, download_name='enhanced.jpg')
 @app.route('/api/enhance-photo', methods=['POST'])
 def enhance_photo():
     if 'file' not in request.files:
@@ -65,14 +90,18 @@ def enhance_photo():
         return jsonify({'error': 'Invalid file type, only image files allowed'}), 400
 
     input_image = Image.open(file.stream).convert("RGB")
-    enhanced = ImageEnhance.Brightness(
-        ImageEnhance.Contrast(
-            ImageEnhance.Sharpness(input_image).enhance(2.0)
-        ).enhance(1.5)
-    ).enhance(1.2)
 
+    # Load Real-ESRGAN model
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = RealESRGAN(device, scale=4)  # 4x upscaling
+    model.load_weights('RealESRGAN_x4.pth')  # Make sure this file is downloaded
+
+    # Enhance image
+    enhanced_image = model.predict(input_image)
+
+    # Convert enhanced image to bytes
     img_io = io.BytesIO()
-    enhanced.save(img_io, 'JPEG', quality=95)
+    enhanced_image.save(img_io, 'JPEG', quality=95)
     img_io.seek(0)
 
     return send_file(img_io, mimetype='image/jpeg', as_attachment=True, download_name='enhanced.jpg')
